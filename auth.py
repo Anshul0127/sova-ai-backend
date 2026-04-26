@@ -4,7 +4,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from backend.database import get_db, User
+from database import get_db, User
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
 import os

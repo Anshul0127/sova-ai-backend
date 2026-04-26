@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from backend.database import get_db, Chat, Message, User
-from backend.auth import get_current_user
+from database import get_db, Chat, Message, User
+from auth import get_current_user
 import uuid, datetime
 
 router = APIRouter()
