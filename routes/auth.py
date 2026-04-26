@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
-from ..database import get_db, User
-from ..auth import (
+from backend.database import get_db, User
+from backend.auth import (
     hash_password, verify_password, create_token,
     firebase_auth, get_current_user
 )
