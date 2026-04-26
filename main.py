@@ -14,6 +14,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://sova-ai.vercel.app",
+        "https://frontend-iasn5dyv9-anshulh1705-2837s-projects.vercel.app",
         "https://frontend-j8ps4cer5-anshulh1705-2837s-projects.vercel.app",
         "http://localhost:5173",
         "https://localhost:5173",
