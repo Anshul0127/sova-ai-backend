@@ -7,7 +7,7 @@ import json
 import traceback
 import re
 from groq import Groq
-from core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
+from ..core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
 
 router = APIRouter()
 _client = None

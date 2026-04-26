@@ -1,30 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routes.chat import router as chat_router
+from .database import create_tables
+from .routes.chat import router as chat_router
+from .routes.auth import router as auth_router
+from .routes.history import router as history_router
 
 load_dotenv()
+create_tables()
 
-app = FastAPI(
-    title="Sova AI Backend",
-    version="1.0.0"
-)
+app = FastAPI(title="Sova AI", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://sova-ai.vercel.app",
-        "https://frontend-iasn5dyv9-anshulh1705-2837s-projects.vercel.app",
-        "https://frontend-j8ps4cer5-anshulh1705-2837s-projects.vercel.app",
-        "http://localhost:5173",
-        "https://localhost:5173",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(chat_router, prefix="/api")
+app.include_router(chat_router,    prefix="/api")
+app.include_router(auth_router,    prefix="/api/auth")
+app.include_router(history_router, prefix="/api")
 
 @app.get("/")
 def root():

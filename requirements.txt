@@ -4,3 +4,8 @@ groq
 python-dotenv
 cryptography
 pydantic
+firebase-admin
+bcrypt
+sqlalchemy
+python-jose[cryptography]
+python-multipart
