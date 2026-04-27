@@ -375,6 +375,33 @@ SOURCES:
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     try:
+        # Check desktop intent first — before streaming
+        if request.mode == "chat":
+            last_msg = request.messages[-1].content if request.messages else ""
+            desktop_intent = parse_desktop_intent(last_msg)
+            if desktop_intent and request.user_id:
+                print(f"[AGENT] Desktop intent detected: {desktop_intent}")
+                result = await send_to_agent(request.user_id, desktop_intent)
+                print(f"[AGENT] Result: {result}")
+
+                if result.get("status") == "sent":
+                    reply = "Done, Anshul."
+                elif result.get("status") == "agent_offline":
+                    reply = "Your desktop agent isn't running. Start it on your laptop first."
+                else:
+                    reply = f"Agent error: {result.get('message', 'unknown')}"
+
+                # Return as SSE stream so frontend handles it normally
+                async def single_token():
+                    yield f"data: {json.dumps({'token': reply})}\n\n"
+                    yield "data: [DONE]\n\n"
+
+                return StreamingResponse(
+                    single_token(),
+                    media_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+                )
+
         client = get_client()
         messages = build_messages(request)
 
@@ -407,7 +434,6 @@ async def chat_stream(request: ChatRequest):
         print(f"[STREAM SETUP ERROR] {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
