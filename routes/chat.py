@@ -83,59 +83,97 @@ def parse_desktop_intent(text: str):
     t = text.lower().strip()
     print(f"[INTENT] Checking: '{t}'")
 
-    for app in ["steam", "riot", "chrome", "spotify", "discord", "whatsapp", "vscode", "notepad", "terminal"]:
+    # Launch app
+    for app in ["steam", "riot", "chrome", "spotify", "discord", "whatsapp", "vscode", "notepad", "terminal", "powershell", "explorer"]:
         if f"open {app}" in t or f"launch {app}" in t or f"start {app}" in t:
             print(f"[INTENT] Matched app: {app}")
             return {"action": "launch_app", "params": {"name": app}}
 
-    for game in ["minecraft", "valorant", "csgo", "gta"]:
+    # Steam games
+    for game in ["minecraft", "csgo", "gta", "gta5"]:
         if game in t and ("play" in t or "launch" in t or "open" in t or "start" in t):
             return {"action": "launch_game", "params": {"game": game}}
 
+    # Riot games
     for game in ["valorant", "league", "lol", "wildrift"]:
         if game in t and ("play" in t or "launch" in t or "open" in t or "start" in t):
             return {"action": "launch_riot_game", "params": {"game": game}}
 
-    if "play" in t and ("spotify" in t or "music" in t):
-        query = t.replace("play", "").replace("on spotify", "").replace("on youtube music", "").replace("music", "").strip()
-        if "spotify" in t:
-            return {"action": "play_spotify", "params": {"query": query}}
+    # Spotify
+    if "play" in t and "spotify" in t:
+        query = t.replace("play", "").replace("on spotify", "").replace("spotify", "").strip()
+        return {"action": "play_spotify", "params": {"query": query}}
+
+    # YouTube Music
+    if "play" in t and ("youtube music" in t or "yt music" in t):
+        query = t.replace("play", "").replace("on youtube music", "").replace("youtube music", "").replace("yt music", "").strip()
         return {"action": "play_ytmusic", "params": {"query": query}}
 
+    # YouTube
     if "play" in t and "youtube" in t:
         query = t.replace("play", "").replace("on youtube", "").replace("youtube", "").strip()
         return {"action": "play_youtube", "params": {"query": query}}
 
+    # Generic play — default to Spotify
+    if t.startswith("play ") and "youtube" not in t and "spotify" not in t:
+        query = t.replace("play", "").strip()
+        return {"action": "play_spotify", "params": {"query": query}}
+
+    # Volume
     vol_match = re.search(r'(?:set )?volume (?:to )?(\d+)', t)
     if vol_match:
         return {"action": "set_volume", "params": {"level": int(vol_match.group(1))}}
-    if "mute" in t and "unmute" not in t:
-        return {"action": "mute", "params": {}}
+    if "volume up" in t or "increase volume" in t or "turn up" in t:
+        return {"action": "set_volume", "params": {"level": 80}}
+    if "volume down" in t or "decrease volume" in t or "turn down" in t:
+        return {"action": "set_volume", "params": {"level": 30}}
     if "unmute" in t:
         return {"action": "unmute", "params": {}}
+    if "mute" in t:
+        return {"action": "mute", "params": {}}
 
-    if "shutdown" in t or ("turn off" in t and "computer" in t):
-        return {"action": "shutdown", "params": {"delay": 30}}
+    # Brightness
+    brightness_match = re.search(r'(?:set )?brightness (?:to )?(\d+)', t)
+    if brightness_match:
+        return {"action": "set_brightness", "params": {"level": int(brightness_match.group(1))}}
+    if "increase brightness" in t or "brightness up" in t or "brighten" in t:
+        return {"action": "set_brightness", "params": {"level": 100}}
+    if "decrease brightness" in t or "brightness down" in t or "dim" in t:
+        return {"action": "set_brightness", "params": {"level": 30}}
+
+    # Battery
+    if "battery" in t:
+        return {"action": "battery", "params": {}}
+
+    # System info
+    if "system info" in t or "system status" in t or "cpu usage" in t or "ram usage" in t or "disk usage" in t:
+        return {"action": "system_info", "params": {}}
+
+    # Screenshot
+    if "screenshot" in t or "screen shot" in t or "capture screen" in t:
+        return {"action": "screenshot", "params": {}}
+
+    # System controls
+    if "shutdown" in t or ("turn off" in t and ("computer" in t or "pc" in t or "laptop" in t)):
+        delay_match = re.search(r'in (\d+)', t)
+        delay = int(delay_match.group(1)) * 60 if delay_match else 30
+        return {"action": "shutdown", "params": {"delay": delay}}
     if "restart" in t and ("computer" in t or "pc" in t or "laptop" in t):
         return {"action": "restart", "params": {}}
     if "sleep" in t and ("computer" in t or "pc" in t or "laptop" in t):
         return {"action": "sleep", "params": {}}
-    if "lock" in t and ("computer" in t or "pc" in t or "screen" in t):
+    if "lock" in t and ("computer" in t or "pc" in t or "screen" in t or "laptop" in t):
         return {"action": "lock", "params": {}}
-    if "screenshot" in t or "screen shot" in t:
-        return {"action": "screenshot", "params": {}}
-    if "system info" in t or "cpu" in t or "ram usage" in t:
-        return {"action": "system_info", "params": {}}
 
+    # WhatsApp
     wa_match = re.search(r'(?:whatsapp|message|text|send).+?(\+?\d[\d\s\-]+)', t)
     if wa_match:
-        msg_match = re.search(r'(?:saying|message|say|tell them)\s+(.+)', t)
+        msg_match = re.search(r'(?:saying|message|say|tell them|with)\s+(.+)', t)
         message = msg_match.group(1) if msg_match else "Hey!"
         return {"action": "whatsapp", "params": {"contact": wa_match.group(1).strip(), "message": message}}
 
     print(f"[INTENT] No match found")
     return None
-
 
 async def send_to_agent(user_id: str, command: dict) -> dict:
     from routes.agent import active_agents
