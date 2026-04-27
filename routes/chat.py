@@ -76,7 +76,7 @@ async def send_to_agent(user_id: str, command: dict) -> dict:
     async with httpx.AsyncClient() as client:
         try:
             res = await client.post(
-                "http://localhost:8000/api/agent/command",
+                "https://web-production-b2903.up.railway.app/api/agent/command",
                 json={"user_id": user_id, "command": command},
                 timeout=5
             )
