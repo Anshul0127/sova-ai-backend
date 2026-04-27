@@ -10,3 +10,4 @@ firebase-admin
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+websockets
