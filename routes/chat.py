@@ -81,20 +81,23 @@ def parse_desktop_intent(text: str) -> dict | None:
 
 
 async def send_to_agent(user_id: str, command: dict) -> dict:
-    """Forward command to desktop agent via backend."""
-    backend_api = os.getenv("BACKEND_API") or "http://127.0.0.1:8000/api"
-    print(f"[AGENT] Forwarding to: {backend_api}/agent/command")
-    async with httpx.AsyncClient() as client:
-        try:
-            res = await client.post(
-                f"{backend_api}/agent/command",
-                json={"user_id": user_id, "command": command},
-                timeout=5
-            )
-            return res.json()
-        except Exception as e:
-            print(f"[AGENT] Error: {e}")
-            return {"status": "error", "message": str(e)}
+    """Forward command to desktop agent via the agent router directly."""
+    from routes.agent import active_agents
+    import json
+
+    ws = active_agents.get(user_id)
+    if not ws:
+        print(f"[AGENT] No agent found for user {user_id}. Active: {list(active_agents.keys())}")
+        return {"status": "agent_offline"}
+
+    try:
+        await ws.send_text(json.dumps(command))
+        print(f"[AGENT] Command sent to agent: {command}")
+        return {"status": "sent"}
+    except Exception as e:
+        print(f"[AGENT] Send failed: {e}")
+        active_agents.pop(user_id, None)
+        return {"status": "error", "message": str(e)}
 
 router = APIRouter()
 _client = None

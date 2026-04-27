@@ -2,6 +2,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Header, HTTPExcep
 from typing import Optional
 import json
 import asyncio
+import os
+AGENT_SECRET = os.getenv("AGENT_SECRET", "sova-agent-secret-2025")
 
 router = APIRouter()
 
