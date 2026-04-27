@@ -8,7 +8,11 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from database import get_db, User
+
+try:
+    from backend.database import get_db, User
+except ImportError:
+    from database import get_db, User
 
 SECRET_KEY         = os.getenv("JWT_SECRET", "sova-secret-change-in-production")
 ALGORITHM          = "HS256"
@@ -24,7 +28,9 @@ if not firebase_admin._apps:
         service_account_dict = json.loads(service_account_env)
         cred = credentials.Certificate(service_account_dict)
     else:
-        cred = credentials.Certificate("firebase-service-account.json")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        cred_path = os.path.join(base_dir, "firebase-service-account.json")
+        cred = credentials.Certificate(cred_path)
     firebase_admin.initialize_app(cred)
 
 def hash_password(password: str) -> str:

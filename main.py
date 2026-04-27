@@ -1,11 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from database import create_tables
-from routes.chat import router as chat_router
-from routes.auth import router as auth_router
-from routes.history import router as history_router
-from routes.agent import router as agent_router
+
+try:
+    from backend.database import create_tables
+    from backend.routes.chat import router as chat_router
+    from backend.routes.auth import router as auth_router
+    from backend.routes.history import router as history_router
+    from backend.routes.agent import router as agent_router
+except ImportError:
+    from database import create_tables
+    from routes.chat import router as chat_router
+    from routes.auth import router as auth_router
+    from routes.history import router as history_router
+    from routes.agent import router as agent_router
 
 load_dotenv()
 create_tables()

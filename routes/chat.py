@@ -8,7 +8,11 @@ import traceback
 import re
 import httpx
 from groq import Groq
-from core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
+
+try:
+    from backend.core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
+except ImportError:
+    from core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
 
 AGENT_SECRET = "sova-agent-secret-2025"
 
@@ -17,7 +21,7 @@ def parse_desktop_intent(text: str) -> dict | None:
     t = text.lower().strip()
 
     # Launch app
-    for app in ["steam", "chrome", "spotify", "discord", "whatsapp", "vscode", "notepad", "terminal"]:
+    for app in ["steam", "riot", "chrome", "spotify", "discord", "whatsapp", "vscode", "notepad", "terminal"]:
         if f"open {app}" in t or f"launch {app}" in t or f"start {app}" in t:
             return {"action": "launch_app", "params": {"name": app}}
 
@@ -25,6 +29,11 @@ def parse_desktop_intent(text: str) -> dict | None:
     for game in ["minecraft", "valorant", "csgo", "gta"]:
         if game in t and ("play" in t or "launch" in t or "open" in t or "start" in t):
             return {"action": "launch_game", "params": {"game": game}}
+
+    # Riot games
+    for game in ["valorant", "league", "lol", "wildrift"]:
+        if game in t and ("play" in t or "launch" in t or "open" in t or "start" in t):
+            return {"action": "launch_riot_game", "params": {"game": game}}
 
     # Music
     if "play" in t and ("spotify" in t or "music" in t):
@@ -73,15 +82,18 @@ def parse_desktop_intent(text: str) -> dict | None:
 
 async def send_to_agent(user_id: str, command: dict) -> dict:
     """Forward command to desktop agent via backend."""
+    backend_api = os.getenv("BACKEND_API") or "http://127.0.0.1:8000/api"
+    print(f"[AGENT] Forwarding to: {backend_api}/agent/command")
     async with httpx.AsyncClient() as client:
         try:
             res = await client.post(
-                "https://web-production-b2903.up.railway.app/api/agent/command",
+                f"{backend_api}/agent/command",
                 json={"user_id": user_id, "command": command},
                 timeout=5
             )
             return res.json()
         except Exception as e:
+            print(f"[AGENT] Error: {e}")
             return {"status": "error", "message": str(e)}
 
 router = APIRouter()
