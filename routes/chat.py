@@ -6,8 +6,83 @@ import os
 import json
 import traceback
 import re
+import httpx
 from groq import Groq
 from core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
+
+AGENT_SECRET = "sova-agent-secret-2025"
+
+def parse_desktop_intent(text: str) -> dict | None:
+    """Detect if message is a desktop command."""
+    t = text.lower().strip()
+
+    # Launch app
+    for app in ["steam", "chrome", "spotify", "discord", "whatsapp", "vscode", "notepad", "terminal"]:
+        if f"open {app}" in t or f"launch {app}" in t or f"start {app}" in t:
+            return {"action": "launch_app", "params": {"name": app}}
+
+    # Steam games
+    for game in ["minecraft", "valorant", "csgo", "gta"]:
+        if game in t and ("play" in t or "launch" in t or "open" in t or "start" in t):
+            return {"action": "launch_game", "params": {"game": game}}
+
+    # Music
+    if "play" in t and ("spotify" in t or "music" in t):
+        query = t.replace("play", "").replace("on spotify", "").replace("on youtube music", "").replace("music", "").strip()
+        if "spotify" in t:
+            return {"action": "play_spotify", "params": {"query": query}}
+        return {"action": "play_ytmusic", "params": {"query": query}}
+
+    if "play" in t and "youtube" in t:
+        query = t.replace("play", "").replace("on youtube", "").replace("youtube", "").strip()
+        return {"action": "play_youtube", "params": {"query": query}}
+
+    # Volume
+    import re
+    vol_match = re.search(r'(?:set )?volume (?:to )?(\d+)', t)
+    if vol_match:
+        return {"action": "set_volume", "params": {"level": int(vol_match.group(1))}}
+    if "mute" in t and "unmute" not in t:
+        return {"action": "mute", "params": {}}
+    if "unmute" in t:
+        return {"action": "unmute", "params": {}}
+
+    # System
+    if "shutdown" in t or "turn off" in t and "computer" in t:
+        return {"action": "shutdown", "params": {"delay": 30}}
+    if "restart" in t and ("computer" in t or "pc" in t or "laptop" in t):
+        return {"action": "restart", "params": {}}
+    if "sleep" in t and ("computer" in t or "pc" in t or "laptop" in t):
+        return {"action": "sleep", "params": {}}
+    if "lock" in t and ("computer" in t or "pc" in t or "screen" in t):
+        return {"action": "lock", "params": {}}
+    if "screenshot" in t or "screen shot" in t:
+        return {"action": "screenshot", "params": {}}
+    if "system info" in t or "cpu" in t or "ram usage" in t:
+        return {"action": "system_info", "params": {}}
+
+    # WhatsApp
+    wa_match = re.search(r'(?:whatsapp|message|text|send).+?(\+?\d[\d\s\-]+)', t)
+    if wa_match:
+        msg_match = re.search(r'(?:saying|message|say|tell them)\s+(.+)', t)
+        message = msg_match.group(1) if msg_match else "Hey!"
+        return {"action": "whatsapp", "params": {"contact": wa_match.group(1).strip(), "message": message}}
+
+    return None
+
+
+async def send_to_agent(user_id: str, command: dict) -> dict:
+    """Forward command to desktop agent via backend."""
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(
+                "http://localhost:8000/api/agent/command",
+                json={"user_id": user_id, "command": command},
+                timeout=5
+            )
+            return res.json()
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
 router = APIRouter()
 _client = None
@@ -28,6 +103,7 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[Message]
     mode: Optional[str] = "chat"
+    user_id: Optional[str] = None
 
 def should_inject_strict_mode(last_message: str) -> bool:
     triggers = ["only", "just", "solely", "nothing else", "no explanation", "return only"]
@@ -323,6 +399,17 @@ async def chat(request: ChatRequest):
     try:
         client = get_client()
         messages = build_messages(request)
+
+        # Check for desktop commands first
+        if request.mode == "chat":
+            last_msg = request.messages[-1].content if request.messages else ""
+            desktop_intent = parse_desktop_intent(last_msg)
+            if desktop_intent and request.user_id:
+                result = await send_to_agent(request.user_id, desktop_intent)
+                if result.get("status") == "sent":
+                    return {"reply": f"Done, Anshul."}
+                elif result.get("status") == "agent_offline":
+                    return {"reply": "Your desktop agent isn't running. Start it on your laptop."}
 
         print(f"[CHAT] mode={request.mode} msgs={len(messages)}")
 
