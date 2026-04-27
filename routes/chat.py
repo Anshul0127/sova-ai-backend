@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -14,6 +15,11 @@ try:
 except ImportError:
     from core.prompts import SYSTEM_PROMPT, MODE_PROMPTS
 
+try:
+    from backend.auth import decode_token
+except ImportError:
+    from auth import decode_token
+
 router = APIRouter()
 _client = None
 
@@ -25,6 +31,15 @@ def get_client():
             raise ValueError("GROQ_API_KEY not set")
         _client = Groq(api_key=api_key)
     return _client
+
+bearer = HTTPBearer(auto_error=False)
+
+def get_user_id_from_token(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer)
+) -> str | None:
+    if not credentials:
+        return None
+    return decode_token(credentials.credentials)
 
 class Message(BaseModel):
     role: str
@@ -323,17 +338,20 @@ SOURCES:
 
 
 @router.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(
+    request: ChatRequest,
+    user_id: str | None = Depends(get_user_id_from_token)
+):
     try:
         # Desktop intent check FIRST
         if request.mode == "chat":
             last_msg = request.messages[-1].content if request.messages else ""
-            print(f"[STREAM] user_id={request.user_id} msg='{last_msg}'")
+            print(f"[STREAM] user_id={user_id} msg='{last_msg}'")
             desktop_intent = parse_desktop_intent(last_msg)
             print(f"[STREAM] intent={desktop_intent}")
 
-            if desktop_intent and request.user_id:
-                result = await send_to_agent(request.user_id, desktop_intent)
+            if desktop_intent and user_id:
+                result = await send_to_agent(user_id, desktop_intent)
                 print(f"[STREAM] agent result={result}")
 
                 if result.get("status") == "sent":
@@ -388,7 +406,10 @@ async def chat_stream(request: ChatRequest):
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest,
+    user_id: str | None = Depends(get_user_id_from_token)
+):
     try:
         client = get_client()
         messages = build_messages(request)
@@ -396,12 +417,12 @@ async def chat(request: ChatRequest):
         # Desktop intent check
         if request.mode == "chat":
             last_msg = request.messages[-1].content if request.messages else ""
-            print(f"[CHAT] user_id={request.user_id} msg='{last_msg}'")
+            print(f"[CHAT] user_id={user_id} msg='{last_msg}'")
             desktop_intent = parse_desktop_intent(last_msg)
             print(f"[CHAT] intent={desktop_intent}")
 
-            if desktop_intent and request.user_id:
-                result = await send_to_agent(request.user_id, desktop_intent)
+            if desktop_intent and user_id:
+                result = await send_to_agent(user_id, desktop_intent)
                 print(f"[CHAT] agent result={result}")
                 if result.get("status") == "sent":
                     return {"reply": "Done, Anshul."}
