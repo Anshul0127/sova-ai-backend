@@ -5,6 +5,7 @@ python-dotenv
 cryptography
 pydantic
 sqlalchemy
+psycopg2-binary
 firebase-admin
 python-jose[cryptography]
 passlib[bcrypt]

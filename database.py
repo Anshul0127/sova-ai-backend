@@ -3,10 +3,21 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 import datetime
 import uuid
+import os
 
-DATABASE_URL = "sqlite:///./sova.db"
+# Use PostgreSQL on Railway, SQLite locally
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./sova.db"
+)
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Railway gives postgres:// but SQLAlchemy needs postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
@@ -22,7 +33,7 @@ class User(Base):
     id            = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email         = Column(String, unique=True, index=True, nullable=False)
     name          = Column(String, nullable=True)
-    password_hash = Column(String, nullable=True)  # None for Google OAuth users
+    password_hash = Column(String, nullable=True)
     firebase_uid  = Column(String, unique=True, nullable=True)
     created_at    = Column(DateTime, default=datetime.datetime.utcnow)
     chats         = relationship("Chat", back_populates="user", cascade="all, delete")
@@ -42,7 +53,7 @@ class Message(Base):
     __tablename__ = "messages"
     id         = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     chat_id    = Column(String, ForeignKey("chats.id"), nullable=False)
-    role       = Column(String, nullable=False)  # user | assistant
+    role       = Column(String, nullable=False)
     content    = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     chat       = relationship("Chat", back_populates="messages")
